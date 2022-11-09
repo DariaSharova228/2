@@ -4,6 +4,7 @@
 int main(int argc, char *argv[]) {
     Args *a = nullptr;
     Results *r = nullptr;
+    Global_Results R;
     int p = 0, k = 0;
     if(argc <= 1) {
         printf("Usage: %s names\n", argv[0]);
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
         a[k].res = r;
         a[k].k = k;
         a[k].p = p;
+        a[k].Res = &R;
         a[k].name = argv[k + 1];
     }
 
@@ -63,11 +65,7 @@ int main(int argc, char *argv[]) {
         delete []a; 
         return -1;
     }
-    int count = 0;
-    for(k = 0; k < p; k++) {
-        count += r[k].count;
-    }
-    printf("Res = %d\n", count);
+    printf("Result = %d\n", R.answer);
     delete []r, delete[]a;
     return 0;
 }
