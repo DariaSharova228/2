@@ -154,6 +154,8 @@ void* thread_func(void *ptr) {
     }
     mean = sum/count;
     r[k].status = f2(name,mean,&r[k].count);
+    w = r[k].count;
+    reduce_sum(p, &w, 1);
     err = 0;
     for(i = 0; i < p; i++) {
         if (r[i].status != 0) {
@@ -176,8 +178,8 @@ void* thread_func(void *ptr) {
         a->Res->status = err;
     }
     if(err) return 0;
-    w = r[k].count;
-    reduce_sum(p, &w, 1);
+    //w = r[k].count;
+    //reduce_sum(p, &w, 1);
     if (k == 0) {
         a->Res->answer = (int)w;
     }
