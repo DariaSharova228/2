@@ -114,6 +114,7 @@ void* thread_func(void *ptr) {
     double sum = 0;
     double mean;
     int i;
+    double w;
     r[k].status = f1(name, &r[k].count, &r[k].sum);
     reduce_sum(p);
     err = 0;
@@ -175,10 +176,10 @@ void* thread_func(void *ptr) {
         a->Res->status = err;
     }
     if(err) return 0;
-    r[k].sum = r[k].count;
-    reduce_sum(p, &r[k].sum, 1);
+    w = r[k].count;
+    reduce_sum(p, &w, 1);
     if (k == 0) {
-        a->Res->answer = (int)r[k].sum;
+        a->Res->answer = (int)w;
     }
 
     /*reduce_sum(p,&(double)r[k].count, 1);
