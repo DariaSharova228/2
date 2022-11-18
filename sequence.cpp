@@ -149,6 +149,7 @@ void* thread_func(void *ptr) {
             a->Res->status = 0;
             a->Res->count = 0;
             a->Res->answer = 0;
+            reduce_sum(p);
             return 0;
         }
     }
