@@ -45,7 +45,7 @@ void reduce_sum(int p, double* a, int n){
   }
   pthread_mutex_unlock(&m);
 }
-int f1(const char* name, int* count, double* sum1) {// подсчет локальных минимумов
+/*int f1(const char* name, int* count, double* sum1) {// подсчет локальных минимумов
     FILE *in;
     double curr, next, prev;
     int quantity = 0;
@@ -79,6 +79,88 @@ int f1(const char* name, int* count, double* sum1) {// подсчет локал
     *sum1 += s;
     return 0;
 
+}*/
+int f1(const char *name,int* len,int* min, double* value_min, double* first, double* last, int* first_lonely, int* last_lonely) {
+    FILE *in;
+    double x, y;
+    int length = 0;
+    int y1 = 0;
+    int yes2 = 0;
+    int min_length = 0;
+    double value_min_length = 0;
+    double la;
+    double fi;
+    int length_seq = 0;
+    if(!(in = fopen(name, "r"))) {
+        return -1;
+    }
+    if (fscanf(in,"%lf",&x)!=1 && (!feof(in))){
+        *len = length_seq;
+        fclose(in);
+        return -2;
+    }
+    fi = x;
+    y = x;
+    length++;
+    length_seq++;
+    la = x;
+    while (fscanf(in,"%lf",&x)==1)
+    {
+        if(length_seq == 1 && fabs(x-y)>EPS) { 
+            y1 = 1;
+            *first_lonely = y1;
+        }
+        if (fabs(x-y)<EPS) length++;
+        else 
+        { 
+            if (length !=1) {
+                if(min_length == 0) {
+                    min_length = length;
+                    value_min_length = x;
+                }
+                else {
+                    if(length < min_length) {
+                        min_length = length;
+                        value_min_length = x;
+                    }
+                }
+            };
+            length = 1; 
+        }
+        y = x;
+        la = x;
+        length_seq++;
+    }
+       
+    if (length>1) {
+        if(min_length == 0) {
+                    min_length = length;
+                    value_min_length = x;
+                }
+                else {
+                    if(length < min_length) {
+                        min_length = length;
+                        value_min_length = x;
+                    }
+                }
+    }
+    if (length == 1) { 
+        yes2 = 1;
+        *last_lonely = yes2;
+    }
+    value_min_length = x;
+    if (!feof(in)) 
+    {
+        fclose(in);
+        return -2;
+    }
+    fclose(in);
+    *len = length_seq;
+    *min = min_length;
+    *value_min = value_min_length;
+    *first = fi;
+    *last = la;
+    return 0;
 }
 int f2(const char* name, double min, int* count){// подсчет числа элементов
     FILE *in;
@@ -109,13 +191,12 @@ void* thread_func(void *ptr) {
     int p = a -> p;
     char *name = a -> name;
     Results *r = a -> res;
-    int count = 0;
+    int len = 0;
+    int min_len = 0;
     int err = 0;
-    double sum = 0;
-    double mean;
+    double value = 0;
     int i;
-    double w;
-    r[k].status = f1(name, &r[k].count, &r[k].sum);
+    r[k].status = f1(name, &r[k].len, &r[k].local_min_length, &r[k].value, &r[k].first, &r[k].last, &r[k].first_lon,&r[k].last_lon);
     reduce_sum(p);
     err = 0;
     for(i = 0; i < p; i++) {
@@ -138,7 +219,7 @@ void* thread_func(void *ptr) {
 
     if (err) return 0;
 
-    for(i = 0; i < p; i++) 
+    /*for(i = 0; i < p; i++) 
         sum += r[i].sum;
 
     for(i = 0; i < p; i++) 
@@ -153,10 +234,85 @@ void* thread_func(void *ptr) {
             return 0;
         }
     }
-    mean = sum/count;
-    r[k].status = f2(name,mean,&r[k].count);
-    w = r[k].count;
-    reduce_sum(p, &w, 1);
+    mean = sum/count;*/
+    int q = 0;
+    for(int i = 0; i < p; i += q) {
+        int j = i + 1;
+        while(j < p) {
+            while(r[j].len == 0) {
+                j++;
+                q++;
+            }
+            if(fabs(r[i].last - r[j].first) < EPS && fabs(r[i].value - r[i].last) < EPS && fabs(r[j].first - r[j].value) < EPS) {
+                len = r[i].local_min_length + r[j].local_min_length + r[i].flag1;
+                if(min_len == 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].value;
+                }
+                if(len < min_len && min_len > 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].value;
+                }
+                break;
+            } 
+            if(fabs(r[i].last - r[j].first) < EPS && r[i].last_lon == 1 && r[j].first_lon == 1) {
+                len = 2;
+                if(min_len == 0) {
+                    min_len = len;
+                    r[j].flag1 = 2;
+                    value = r[i].last;
+                }
+                if(len < min_len && min_len > 0) {
+                    min_len = len;
+                    r[j].flag1 = 2;
+                    value = r[i].last;
+                }
+                break;
+            }
+            if(fabs(r[i].last - r[j].first) < EPS && fabs(r[i].value - r[i].last) < EPS && r[j].first_lon == 1) {
+                len = r[i].local_min_length + 1 + r[i].flag1;
+                if(min_len == 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].last;
+                }
+                if(len < min_len && min_len > 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].last;
+                }
+                break;
+            }
+            if(fabs(r[i].last - r[j].first) < EPS && fabs(r[j].value - r[j].first) < EPS && r[i].last_lon == 1){
+                len = r[j].local_min_length + 1 + r[i].flag1;
+                if(min_len == 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].last;
+                }
+                if(len < min_len && min_len > 0) {
+                    min_len = len;
+                    r[j].flag1 = len;
+                    value = r[i].last;
+                }
+                break;
+            }
+        }
+        if(min_len == 0){
+            min_len = r[i].local_min_length;
+            value = r[i].value;
+            break;
+        }
+        if(r[i].local_min_length < min_len) {
+                min_len = r[i].local_min_length;
+                value = r[i].value;
+                break;
+        }
+    }
+    r[k].status = f2(name,value,&r[k].count);
+    reduce_sum(p);
     err = 0;
     for(i = 0; i < p; i++) {
         if (r[i].status != 0) {
@@ -181,13 +337,10 @@ void* thread_func(void *ptr) {
     if(err) return 0;
     //w = r[k].count;
     //reduce_sum(p, &w, 1);
-    if (k == 0) {
-        a->Res->answer = (int)w;
-    }
-
     /*reduce_sum(p,&(double)r[k].count, 1);
     if(k == 0) {
         a->Res->answer = r[k].count;
     }*/
+    a->Res->answer += r[k].count;
     return 0;
 }
