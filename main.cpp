@@ -34,6 +34,8 @@ int main(int argc, char *argv[]) {
     for(k = 1; k < p; k++) {
         if(pthread_create(&a[k].tid, 0, thread_func, a + k)) {
             printf("Could not create pthread %d\n", k);
+            delete []r;
+            delete []a;
             abort();
         }
     }
