@@ -25,9 +25,8 @@ class Results {
         double value = 0;
         int local_min_length = 0;
         int len = 0;
-        int flag1 = 0;
-        int first_lon = 0;
-        int last_lon = 0;
+        int first_length = 1;
+        int last_length = 1;
 };
 
 class Args {
