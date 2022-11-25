@@ -199,10 +199,6 @@ void* thread_func(void *ptr) {
     r[k].status = f1(name, &r[k].len, &r[k].local_min_length, &r[k].value, &r[k].first, &r[k].last, &r[k].first_length,&r[k].last_length);
     reduce_sum(p);
     err = 0;
-    printf(" %d\n", r[k].local_min_length);
-    printf(" %lf\n", r[k].value);
-    printf(" %d\n", r[k].first_length);
-    printf(" %d\n", r[k].last_length);
 
     for(i = 0; i < p; i++) {
         if (r[i].status != 0) {
