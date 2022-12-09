@@ -231,13 +231,13 @@ int count_change(double *arr, int n, int p, int k, Results *res) {
         }
         if(lenk > 3) {
             a = res[k].prev1 * res[k].prev2 * arr[first + 1] * arr[first + 2];
-            if(a > 0 || (a - 0) < EPS) {
+            if(a > 0 || fabs(a - 0) < EPS) {
                 pprev = arr[first];
                 arr[first] = pow(a, 1/4.0);
                 count++;
             }
             a = res[k].prev1 * pprev * arr[first + 2] * arr[first + 3];
-            if(a > 0 || (a - 0) < EPS) {
+            if(a > 0 || fabs(a - 0) < EPS) {
                 prev = arr[first + 1];
                 arr[first + 1] = pow(a, 1/4.0);
                 count++;
@@ -248,7 +248,7 @@ int count_change(double *arr, int n, int p, int k, Results *res) {
         a = pprev * prev * arr[first + i + 1] * arr[first + i + 2];
         pprev = prev;
         prev = arr[first + i];
-        if(a > 0 || (a - 0) < EPS) {
+        if(a > 0 || fabs(a - 0) < EPS) {
             arr[first + i] = pow(a, 1/4.0);
             count++;
         }
@@ -256,7 +256,7 @@ int count_change(double *arr, int n, int p, int k, Results *res) {
     if(lenk == 3) {
         if(res[k].flagr1 == 1 && res[k].flagr2 == 1){
             a = pprev * prev * res[k].next1 * res[k].next2;
-            if(a > 0 || (a - 0) < EPS) {
+            if(a > 0 || fabs(a - 0) < EPS) {
             arr[first + 2] = pow(a, 1/4.0);
             count++;
             }
@@ -268,13 +268,13 @@ int count_change(double *arr, int n, int p, int k, Results *res) {
         a = pprev * prev * arr[first + lenk - 1] * res[k].next1;
         pprev = prev;
         prev = arr[first + lenk - 2];
-        if(a > 0 || (a - 0) < EPS) {
+        if(a > 0 || fabs(a - 0) < EPS) {
             arr[first + lenk - 2] = pow(a, 1/4.0);
             count++;
         }
         if(res[k].flagr2 == 1) {
             a = pprev * prev * res[k].next1 * res[k].next2;
-            if(a > 0 || (a - 0) < EPS) {
+            if(a > 0 || fabs(a - 0) < EPS) {
                 arr[first + lenk - 1] = pow(a, 1/4.0);
                 count++;
             }
