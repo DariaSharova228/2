@@ -90,18 +90,19 @@
 int main(int argc, char *argv[]) {
     Args *a = nullptr;
     Results *res = nullptr;
-    int p = 0, k = 0, err = 0, n1 = 0, n2 = 0, count = 0;
+    int p = 0, k = 0, err = 0, n = 0, count = 0;
     double *arr = nullptr;
     char *name = nullptr;
     double time = 0;
-    if (!((argc == 5) && (sscanf(argv[1], "%d", &p) == 1) && (sscanf(argv[2], "%d", &n1)) && (sscanf(argv[3], "%d", &n2)) && (p >= 1) && (p <= n1))) {
-        printf("Usage: %s p n1 n2 name\n", argv[0]);
+
+    if (!((argc == 4) && (sscanf(argv[1], "%d", &p) == 1) && (sscanf(argv[2], "%d", &n)) && (p >= 1) && (p <= n))) {
+        printf("Usage: %s p n name\n", argv[0]);
         return 0;
     }
 
-    name = argv[4];
+    name = argv[3];
 
-    arr = new double[n1 * n2];
+    arr = new double[n];
     if (!arr) {
         printf("Memory error!\n");
         return 0;
@@ -118,19 +119,13 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    err = read_arr(arr, n1 * n2, name);
+    err = read_arr(arr, n, name);
     if (err == -1) {
-        delete []res;
-        delete []a;
-        delete []arr;
         printf("Cannot open file %s!\n", name);
         return 0;
     }
 
     if (err == -2) {
-        delete []res;
-        delete []a;
-        delete []arr;
         printf("Cannot read file %s!\n", name);
         return 0;
     }
@@ -139,8 +134,7 @@ int main(int argc, char *argv[]) {
         a[k].arr = arr;
         a[k].k = k;
         a[k].p = p;
-        a[k].n1 = n1;
-        a[k].n2 = n2;
+        a[k].n = n;
         a[k].res = res;
     }
 
@@ -159,23 +153,18 @@ int main(int argc, char *argv[]) {
     for(k = 1; k < p; k++) 
         pthread_join(a[k].tid, 0);
     time = (clock() - time) / CLOCKS_PER_SEC;
-    for(k = 0; k < p; k++) {
-        if (res[k].err == -1) {
-            delete []res;
-            delete []a;
-            delete []arr;
-            printf("Memory error11!\n");
-            return 0;
-        }
-    }
     
-    count = a[0].count;
+    for(k = 0; k < p; k++) 
+        count += a[k].count;
+
     for(k = 0; k < p; k++)
         printf("%d elapsed: %2lf\n", k, a[k].time);
     printf("Global time = %2lf\n", time);
     printf("Count = %d\n", count);
     printf("RESULT %d: ", p);
-    print_arr(arr, n1, n2);
+        for(int i = 0; i < n; i++){
+        printf("%.4f ", arr[i]);
+    }
     delete []res;
     delete []a;
     delete []arr;
