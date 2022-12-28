@@ -1,183 +1,66 @@
-
-#include <pthread.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <ctime>
 #include "sequence.h"
-
-/*int main(int argc, char *argv[]) {
-    Args *a = nullptr;
-    Results *r = nullptr;
-    Global_Results R;
-    int p = 0, k = 0;
-    int n = 0;
-    FILE *fp;
-    if(argc != 4) {
-        printf("Usage: %s p n names\n", argv[0]);
-        return -1;
-    }
-    if(!sscanf(argv[1], "%d", &p) || !sscanf(argv[2], "%d", &n)) {
-        
-    }
-
-
-    if(argc <= 1) {
-        printf("Usage: %s names\n", argv[0]);
-        return -1;
-    }
-    p = argc -1;
-    r = new Results[p];
-    if(r == nullptr) {
-        printf("could not allocate memory for results\n");
-        return -1;
-    }
-    a = new Args[p];
-    if(a == nullptr) {
-        printf("could not allocate memory for args\n");
-        delete []r;
-        return -1;
-    }
-    
-    for(k = 0; k < p; k++) {
-        a[k].res = r;
-        a[k].k = k;
-        a[k].p = p;
-        a[k].Res = &R;
-        a[k].name = argv[k + 1];
-    }
-
-    for(k = 1; k < p; k++) {
-        if(pthread_create(&a[k].tid, 0, thread_func, a + k)) {
-            printf("Could not create pthread %d\n", k);
-            delete []r;
-            delete []a;
-            abort();
-        }
-    }
-    thread_func(a + 0);
-    for(k = 1; k < p; k++) {
-        pthread_join(a[k].tid, 0);
-    }
-    //no other threads except main
-    //reuslt
-    int err = 0;
-    for(k = 0; k < p; k++) {
-        if(r[k].status < 0) {
-            switch(r[k].status) {
-                case -1: 
-                    printf("Could not open file %s\n", a[k].name);
-                    break;
-                case -2:
-                    printf("Could not read file %s\n", a[k].name);
-                    break;
-                default:
-                    printf("Unknown error %d %s\n", r[k].status, a[k].name);
-                    break;
-            }
-            err++;
-        }
-    }
-    if(err) {
-        delete []r;
-        delete []a; 
-        return -1;
-    }
-    printf("Result = %d\n", R.answer);
-    delete []r, delete[]a;
-    return 0;
-}*/
+double get_time_tot()
+{
+    struct timeval buf;
+    gettimeofday(&buf, 0);
+    return buf.tv_sec + buf.tv_usec / 1.e6;
+}
 int main(int argc, char *argv[]) {
-    Args *a = nullptr;
-    Results *res = nullptr;
-    int p = 0, k = 0, err = 0, n1 = 0, n2 = 0, count = 0;
-    double *arr = nullptr;
-    char *name = nullptr;
-    double time = 0;
-    if (!((argc == 5) && (sscanf(argv[1], "%d", &p) == 1) && (sscanf(argv[2], "%d", &n1)) && (sscanf(argv[3], "%d", &n2)) && (p >= 1) && (p <= n1))) {
-        printf("Usage: %s p n1 n2 name\n", argv[0]);
-        return 0;
+    int p_thread, k, n;
+    Args *args;
+    results *local_res;
+    global_results glob_res;
+    double time_tot = 0;
+    if (!((argc == 3) && sscanf(argv[1], "%d", &p_thread) == 1 && sscanf(argv[2], "%d", &n) == 1)) {
+        printf("usage: %s p n\n", argv[0]);
+        return 1;
     }
 
-    name = argv[4];
+    local_res = new results[p_thread];
+    args = new Args[p_thread];
 
-    arr = new double[n1 * n2];
-    if (!arr) {
-        printf("Memory error!\n");
-        return 0;
+    if (local_res == nullptr || args == nullptr) {
+
+        printf("Error! Unable to allocate memory\n");
+
+        if (local_res) {
+            delete[] local_res;
+        }
+
+        if (args) {
+            delete[] args;
+        }
+
+        return 3;
     }
 
-    res = new Results[p];
-    a = new Args[p];
+    glob_res.n = n;
 
-    if (res == nullptr || a == nullptr) {
-        printf("Not any new!\n");
-        if (res) delete []res;
-        if (a) delete []a;
-        delete []arr;
-        return 0;
+    for (k = 0; k < p_thread; k++) {
+        args[k].k = k;
+        args[k].res = local_res;
+        args[k].p = p_thread;
+        args[k].n = n;
+        local_res[k].glob_res = &glob_res;
     }
-
-    err = read_arr(arr, n1 * n2, name);
-    if (err == -1) {
-        delete []res;
-        delete []a;
-        delete []arr;
-        printf("Cannot open file %s!\n", name);
-        return 0;
-    }
-
-    if (err == -2) {
-        delete []res;
-        delete []a;
-        delete []arr;
-        printf("Cannot read file %s!\n", name);
-        return 0;
-    }
-
-    for(k = 0; k < p; k++) {
-        a[k].arr = arr;
-        a[k].k = k;
-        a[k].p = p;
-        a[k].n1 = n1;
-        a[k].n2 = n2;
-        a[k].res = res;
-    }
-
-    time = clock();
-    for(k = 1; k < p; k++) {
-        if (pthread_create(&a[k].tid, 0, thread_func, a + k)) {
-            printf("Cannot create thread %d!\n", k);
-            delete []arr;
-            delete []res;
-            delete []a;
+    time_tot = get_time_tot();
+    for (k = 1; k < p_thread; k++) {
+        if (pthread_create(&args[k].tid, 0, thread_func, args + k)) {
+            printf("Cannot create thread %d\n", k);
             abort();
         }
     }
-
-    thread_func(a + 0);
-    for(k = 1; k < p; k++) 
-        pthread_join(a[k].tid, 0);
-    time = (clock() - time) / CLOCKS_PER_SEC;
-    for(k = 0; k < p; k++) {
-        if (res[k].err == -1) {
-            delete []res;
-            delete []a;
-            delete []arr;
-            printf("Memory error11!\n");
-            return 0;
-        }
+    thread_func(args + 0);
+    for (k = 1; k < p_thread; k++) {
+        pthread_join(args[k].tid, 0);
     }
-    
-    count = a[0].count;
-    for(k = 0; k < p; k++)
-        printf("%d elapsed: %2lf\n", k, a[k].time);
-    printf("Global time = %2lf\n", time);
-    printf("Count = %d\n", count);
-    printf("RESULT %d: ", p);
-    print_arr(arr, n1, n2);
-    delete []res;
-    delete []a;
-    delete []arr;
-    return 1;
+    time_tot = get_time_tot() - time_tot;
+    for (k = 0; k < p_thread; k++) {
+        printf("%d thread time = %lf sec\n", k, local_res[k].time_cpu);
+    }
+    printf ("elapsed_all = %.2f\n", time_tot);
+    printf("Result = %llu\n", glob_res.max_six);
+    delete[] local_res;
+    delete[] args;
+    return 0;
 }
