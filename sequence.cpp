@@ -1,396 +1,206 @@
 #include "sequence.h"
-#define EPS 1e-16
-double fabs(double a) {
-    return (a > 0 ? a : -a);
-}
-int read_arr(double *a, int n, char *name) {
-    FILE *inp;
+
+void reduce_sum(int p, double *a = nullptr, int n = 0) {
+    static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_cond_t c_in = PTHREAD_COND_INITIALIZER;
+    static pthread_cond_t c_out = PTHREAD_COND_INITIALIZER;
+    static int t_in = 0;
+    static int t_out = 0;
+    static double *r = nullptr;
     int i = 0;
+    if (p <= 1) return;
+    pthread_mutex_lock(&m);
+    if (r == nullptr)
+        r = a;
+    else
+        for (i = 0; i < n; i++)
+            r[i] += a[i];
+    t_in++;
+    if (t_in >= p) {
+        t_out = 0;
+        pthread_cond_broadcast(&c_in);
+    } else
+        while (t_in < p)
+            pthread_cond_wait(&c_in, &m);
 
-    if (!(inp = fopen(name, "r"))) {
-        return -1;
-    }
+    if (r != a)
+        for (i = 0; i < n; i++)
+            a[i] = r[i];
+    t_out++;
+    if (t_out >= p) {
+        t_in = 0;
+        r = nullptr;
+        pthread_cond_broadcast(&c_out);
+    } else
+        while (t_out < p)
+            pthread_cond_wait(&c_out, &m);
+    pthread_mutex_unlock(&m);
+}
 
-    for(i = 0; i < n; i++) {
-        a[i] = 0;
-        if (fscanf(inp, "%lf", &a[i]) != 1) {
-            fclose(inp);
-            return -2;
+double get_cpu_time() {
+    struct rusage buf;
+    getrusage(RUSAGE_THREAD, &buf);
+    return buf.ru_utime.tv_sec + buf.ru_utime.tv_usec / 1.e+6;
+}
+
+
+
+int find_6y_numbers(Args *arg) {
+    int k = arg->k;
+    results *r = arg->res;
+    long long unsigned int i, j, start = r[k].start, finish = r[k].start + r[k].ch_size - 1;
+    long long unsigned int last = 0, first = 0, second = 0, pred_last = 0, pred_pred_last = 0, prev = 0, current_max = 0;
+    bool is_prime;
+    start = (start < 2 ? 2 : start);
+    r[k].count_six_prime2 = 0;
+    for (i = start; i <= finish; i++) {
+        is_prime = true;
+        // Здесь определям, простое оно или нет
+        for (j = 2; j * j <= i; j++) {
+            if (i % j == 0) {
+                is_prime = false;
+                break;
+            }
+        }
+        if (is_prime) {
+            if (first == 0) {
+                first = i;
+            } else {
+                if (second == 0) {
+                    second = i;
+                }
+            }
+            last = i;
+            pred_pred_last = pred_last;
+            pred_last = prev;
+            if ((prev > 0) && (i - prev == 6)) {
+                r[k].count_six_prime2++;
+                current_max = i;
+            }
+            if ((pred_pred_last > 0) && (i - pred_pred_last == 6)) {
+                r[k].count_six_prime2++;
+            }
+            prev = i;
         }
     }
-
-    fclose(inp);
+    r[k].first_prime = first;
+    r[k].second_prime = second;
+    r[k].prev_last_prime = pred_last;
+    r[k].last_prime = last;
+    r[k].current_max = current_max;
     return 0;
 }
-void print_arr(double *a, int n1, int n2) {
-    int i = 0, j = 0;
-    for(i = 0; i < n1; i++) {
-        for(j = 0; j < n2; j++)
-            printf("%lf ", a[i * n2 + j]);
-        printf("\n");
-    }
-}
-void reduce_sum(int p, double* a, int n){
-  static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t c_in = PTHREAD_COND_INITIALIZER;
-  static pthread_cond_t c_out = PTHREAD_COND_INITIALIZER;
-  static int t_in = 0;
-  static int t_out = 0;
-  static double*r = nullptr;
-  int i;
-  if(p <= 1)return;
-  pthread_mutex_lock(&m);
-  if(r == nullptr){
-    r = a;
-  }
-  else{
-    for(i = 0; i < n; i++) r[i]+=a[i];
-  }
-  t_in++;
-  if(t_in >= p){
-    t_out = 0;
-    pthread_cond_broadcast(&c_in);
-  }else{
-    while(t_in<p){
-      pthread_cond_wait(&c_in, &m);
-    }
-  }
 
-
-  if(r != a){
-    for(i = 0; i < n; i++) a[i] = r[i];
-  }
-  t_out++;
-  if(t_out >=p){
-    t_in = 0;
-    r = nullptr;
-    pthread_cond_broadcast(&c_out);
-  }else{
-    while(t_out < p){
-      pthread_cond_wait(&c_out, &m);
-    }
-  }
-  pthread_mutex_unlock(&m);
-}
-void full_array(double* arr, double *arr1, double *arr2, int n1, int n2, int p, int k, Results* res) {
-    int l = n1 % p;
-    int lenk = n1 / p + (k < l ? 1 : 0);
-    int first = (k < l ? k * lenk : k * lenk + l);
-    int i1 = 0;
-    int h = (first + lenk < n1 ? first + lenk : n1);
-    for(i1 = 0; i1 < n2; i1++) {
-        arr1[i1] = arr[first * n2 + i1];
-    }
-    res[k].arr1 = arr1;
-    for(i1 = 0; i1 < n2; i1++) {
-        arr2[i1] = arr[(h-1) * n2 + i1];
-    }
-    res[k].arr2 = arr2;
-}
-void check_arr(double *arr, double *sum, int *count, int n1, int n2, int p, int k) {
-    int l = n1 % p;
-    int lenk = n1 / p + (k < l ? 1 : 0);
-    int first = (k < l ? k * lenk : k * lenk + l);
-    int i = 0;
-    int j = 0;
-    int h = (first + lenk < n1 ? first + lenk : n1);
-    double a = 0;
-    double sum1 = 0.;
-    int count1 = 0;
-
-    for(i = first + 1; i < h - 1; i++) {
-        for(j = 1; j < n2 - 1; j++) {
-            a = (arr[(i + 1) * n2 + j] + arr[i * n2 + j - 1] + arr[i * n2 + j + 1]  + arr[(i - 1) * n2 + j]) / 4.;
-            if ((arr[i * n2 + j]) > a || (fabs(arr[i * n2 + j] - a) < EPS)) {
-                sum1 += arr[i * n2 + j];
-                count1++;
+int global_res_fun(Args *arg) {
+    int i, n, p = arg->p, current_count;
+    results *r = arg->res;
+    long long unsigned int tek_last, tek_prev_last, tek_max;
+    current_count = r[0].glob_res->current_count;
+    tek_max = r[0].glob_res->max_six;
+    n = r[0].glob_res->n;
+    tek_last = r[0].glob_res->last;
+    tek_prev_last = r[0].glob_res->prev_last;
+    for (i = 0; i < p; i++) {
+        if (tek_last > 0) {
+            if (r[i].first_prime > 0) {
+                if (r[i].first_prime - tek_last == 6) {
+                    current_count++;
+                    tek_max = r[i].first_prime;
+                }
+                if ((tek_prev_last > 0) && (r[i].first_prime - tek_prev_last == 6)) {
+                    current_count++;
+                    tek_max = r[i].first_prime;
+                }
+            }
+            r[0].glob_res->current_count = current_count;
+            r[0].glob_res->max_six = tek_max;
+            if (current_count == n) {
+                r[0].glob_res->index_last = i;
+                return i;
+            }
+            if (r[i].second_prime > 0) {
+                if (r[i].second_prime - tek_last == 6) {
+                    current_count++;
+                    //Непонятно, вляется ли максимальным
+                    tek_max = r[i].second_prime;
+                }
             }
         }
-    }
+        r[0].glob_res->current_count = current_count;
+        r[0].glob_res->max_six = tek_max;
+        current_count += r[i].count_six_prime2;
+        if (current_count == n) {
+            r[0].glob_res->current_count = current_count;
+            r[0].glob_res->max_six = tek_max;
+        }
+        if (current_count >= n) {
+            r[0].glob_res->index_last = i;
+            return i;
+        }
+        if (r[i].prev_last_prime > 0) {
+            tek_last = r[i].last_prime;
+            tek_prev_last = r[i].prev_last_prime;
+        } else if (r[i].last_prime > 0) {
+            tek_prev_last = tek_last;
+            tek_last = r[i].last_prime;
+        }
 
-    *sum = sum1;
-    *count = count1;
+    }
+    r[0].glob_res->current_count = current_count;
+    r[0].glob_res->max_six = tek_max;
+    r[0].glob_res->last = tek_last;
+    r[0].glob_res->prev_last = tek_prev_last;
+    return -1;
 }
 
-void change_arr(double *arr, double *arr3, double mean, int n1, int n2, int p, int k, Results *res) {
-    int l = n1 % p;
-    int lenk = n1 / p + (k < l ? 1 : 0);
-    int first = (k < l ? k * lenk : k * lenk + l);
-    int i = 0, i1 = 0;
-    int j = 0;
-    int h = (first + lenk < n1 ? first + lenk : n1);
-    double curr = 0;
-    double buf = 0;
-    //printf("thr %d     %d\n", k, first);
-    //printf("%d\n", h);
-    
-    if(k > 0) {
-        if(lenk > 1) {
-            buf = arr[first * n2];
-            for(j = 1; j < n2 - 1; j++) {
-                curr = (res[k - 1].arr2[j] + arr[first * n2 + j + 1] + buf + arr[(first + 1) * n2 + j])/ 4.;
-                buf = arr[first * n2 + j];
-                if((arr[first * n2 + j] > curr) || (fabs(arr[first * n2 + j] - curr) < EPS)) {
-                    arr[first * n2 + j] = mean;
-                }
-            }
-        }
-        else {
-            if(k != p - 1){
-                buf = arr[first * n2];
-                for(j = 1; j < n2 - 1; j++) {
-                    curr = (res[k - 1].arr2[j] + arr[first * n2 + j + 1] + buf + res[k + 1].arr1[j])/4.;
-                    buf = arr[first * n2 + j];
-                    if((arr[first * n2 + j] > curr) || (fabs(arr[first * n2 + j] - curr) < EPS)) {
-                        arr[first * n2 + j] = mean;
-                    }
-                }
-            }
-        }
-    }
-    if(k < p - 1) {
-        if(lenk > 2) {
-            buf = arr[(h - 1) * n2];
-            for(j = 1; j < n2 - 1; j++) {
-                curr = (res[k + 1].arr1[j] + arr[(h - 1) * n2 + j + 1] + buf + arr[(h - 2) * n2 + j])/ 4.;
-                buf = arr[(h - 1) * n2 + j];
-                if((arr[(h - 1) * n2 + j] > curr) || (fabs(arr[(h - 1) * n2 + j] - curr) < EPS)) {
-                    arr[(h - 1) * n2 + j] = mean;
-                }
-            }
-        }
-        if(lenk == 2) {
-            buf = arr[(h - 1) * n2];
-            for(j = 1; j < n2 - 1; j++) {
-                curr = (res[k + 1].arr1[j] + arr[(h - 1) * n2 + j + 1] + buf + res[k].arr1[j])/ 4.;
-                buf = arr[(h - 1) * n2 + j];
-                if((arr[(h - 1) * n2 + j] > curr) || (fabs(arr[(h - 1) * n2 + j] - curr) < EPS)) {
-                    arr[(h - 1) * n2 + j] = mean;
-                }
-            }
-        }
-    }
-    for(i1 = 0; i1 < n2; i1++) {
-        arr3[i1] = res[k].arr1[i1];
-    }
-
-    /*if (first + 1 < n1 - 1) {
-        for(i1 = 0; i1 < n2; i1++) {
-            arr2[i1] = arr[(first + 1) * n2 + i1];
-        }
-    }
-    if(h - 1 < n1 - 1) {
-        for(i1 = 0; i1 < n2; i1++) {
-            arr2[i1] = arr[(h-1) * n2 + i1];
-        }
-    }
-    res[k].arr2 = arr2;*/
-//вохможно надо завести еще один массив или можно проверять ваще без него
-    for(i = first + 1; i < h - 2; i++) {
-        buf = arr[i * n2];
-        for(j = 1; j < n2 - 1; j++) {
-            //print_arr(arr1, 1, n2);
-            curr = (arr[(i + 1) * n2 + j] + arr3[j] + arr[i * n2 + j + 1]  + buf) / 4.;
-            arr3[j] = arr[i * n2 + j];
-            buf = arr[i * n2 + j];
-            if ((arr[i * n2 + j] > curr) || (fabs(arr[i * n2 + j] - curr) < EPS)) {
-                arr[i * n2 + j] = mean;
-            }
-        }
-        arr3[0] = arr[i * n2];
-        arr3[n2 - 1] = arr[i * n2 + n2 - 1];
-    }
-    if(h - 2 > first) {
-        buf = arr[(h - 2) * n2];
-        for(j = 1; j < n2 - 1; j++) {
-            curr = (arr[(h - 2) * n2 + j + 1] + buf + arr3[j] + res[k].arr2[j]) /4.;
-            buf = arr[(h - 2) * n2 + j];
-            if ((arr[(h - 2) * n2 + j] > curr)|| (fabs(arr[(h - 2) * n2 + j] - curr) < EPS)) {
-                arr[(h - 2) * n2 + j] = mean;
-            }
-        }
-    }
-    /*printf("--------------------------\n");
-    printf("--------------------------\n");
-    print_arr(arr1, 1, n2);
-    printf("--------------------------\n");
-    print_arr(arr2, 1, n2);
-    printf("--------------------------\n");
-    printf("--------------------------\n");*/
-}
-
-void* thread_func(void *ptr) {
-    Args *a = (Args*) ptr;
-    int k = a -> k;
-    int p = a -> p;
-    int n1 = a -> n1;
-    int n2 = a -> n2;
-    double *arr = a -> arr;
-    Results *res = a -> res;
-    double time = 0;
-    int count = 0;
-    double  mean = 0;
-    double *arr1 = nullptr, *arr2 = nullptr, *arr3 = nullptr;
-    //double *arr10 = nullptr, *arr20 = nullptr;
-    int l = n1 % p;
-    double val;
-    int lenk1 = 0;
-    int first1 = 0;
-    int h = 0;
-    double curr = 0;
-    //int lenk = n1 / p + (k < l ? 1 : 0);
-    //int first = (k < l ? k * lenk : k * lenk + l);
-    //int h = (first + lenk < n1 ? first + lenk : n1);
-    //int leni = 0, leni1 = 0, firsti = 0, lasti = 0;
-    int i = 0, j = 0;
-
-    arr1 = new double[n2];
-    if (!arr1) {
-        res[k].err = -1;
-        return nullptr;
-    }
-
-    arr2 = new double[n2];
-    if (!arr2) {
-        res[k].err = -1;
-        delete []arr1;
-        return nullptr;
-    }
-    arr3 = new double[n2];
-    if (!arr3) {
-        res[k].err = -1;
-        delete []arr1;
-        delete []arr2;
-        return nullptr;
-    }
-
-    for(i = 0; i < n2; i++) {
-        arr1[i] = 0;
-        arr2[i] = 0;
-        arr3[i] = 0;
-    }
-    /*printf("--------------------------\n");
-    print_arr(arr1, 1, n2);
-    printf("--------------------------\n");
-    print_arr(arr2, 1, n2);
-    printf("--------------------------\n");*/
-    time = clock();
-    full_array(arr, arr1, arr2, n1, n2, p, k, res);
-    reduce_sum(p);
-    for(int k1 = 1; k1 < p; k1++) {
-        lenk1 = n1 / p + (k1 < l ? 1 : 0);
-        first1 = (k1 < l ? k1 * lenk1 : k1 * lenk1 + l);
-        if(lenk1 > 1) {
-            for(j = 1; j < n2 - 1; j++) {
-                curr = (res[k1 - 1].arr2[j] + arr[first1 * n2 + j + 1] + arr[first1 * n2 + j - 1] + arr[(first1 + 1) * n2 + j])/ 4.;
-                if((arr[first1 * n2 + j] > curr) || (fabs(arr[first1 * n2 + j] - curr) < EPS)) {
-                    count++;
-                    mean += arr[first1 * n2 + j];
-                }
-            }
-        }
-        else {
-            if(k1 != p - 1){
-                for(j = 1; j < n2 - 1; j++) {
-                    curr = (res[k1 - 1].arr2[j] + arr[first1 * n2 + j + 1] + arr[first1 * n2 + j - 1] + res[k1 + 1].arr1[j])/4.;
-                    if((arr[first1 * n2 + j] > curr) || (fabs(arr[first1 * n2 + j] - curr) < EPS)) {
-                        count++;
-                        mean += arr[first1 * n2 + j];
-                    }
-                }
-            }
-        }
-    }
-    for(int k1 = 0; k1 < p - 1; k1++) {
-        lenk1 = n1 / p + (k1 < l ? 1 : 0);
-        first1 = (k1 < l ? k1 * lenk1 : k1 * lenk1 + l);
-        h = (first1 + lenk1 < n1 ? first1 + lenk1 - 1: n1 - 1);
-        if(lenk1 > 1) {
-            for(j = 1; j < n2 - 1; j++){
-                curr = (res[k1 + 1].arr1[j] + arr[h * n2 + j + 1] + arr[h * n2 + j - 1] + arr[(h - 1) * n2 + j] )/4.;
-                if((arr[h * n2 + j] > curr) || (fabs(arr[h * n2 + j] - curr) < EPS)) {
-                    count++;
-                    mean += arr[h * n2 + j];
-                }
-            }
-        }
-    }
-    check_arr(arr, &res[k].sum, &res[k].count, n1, n2, p, k);
-    
-    /*for(i = 1; i < p; i++) {
-        leni1 = n1 / p + (i - 1 < l ? 1 : 0);
-        leni = n1 / p + (i < l ? 1 : 0);
-        firsti = (i < l ? i * leni : i * leni + l);
-        lasti = (i - 1 < l ? (i - 1) * leni1 : (i - 1) * leni1 + l) + leni1 - 1;
-        if (leni1 > 1) {
-            if (lasti < n1 - 1 && lasti > 0)
-                for(j = 1; j < n2 - 1; j++) {
-                    mean0 = (arr[lasti * n2 + j + 1] + arr[(lasti - 1) * n2 + j] + arr[lasti * n2 + j - 1]+ arr[(lasti + 1) * n2 + j]) / 4.;  
-                    if ((arr[lasti * n2 + j] > mean0) || (fabs(arr[lasti * n2 + j] - mean0) < EPS)) {
-                        count++;
-                        mean += arr[lasti * n2 + j];
-                    }
-                }
-        }
-        if (firsti < n1 - 1 && firsti > 0) {
-            for(j = 1; j < n2 - 1; j++) {
-                mean0 = (arr[firsti * n2 + j + 1] + arr[(firsti - 1) * n2 + j] + arr[firsti * n2 + j - 1] + arr[(firsti + 1) * n2 + j] ) / 4.;  
-                if ((arr[firsti * n2 + j] > mean0) || (fabs(arr[firsti * n2 + j] - mean0) < EPS)) {
-                    count++;
-                    mean += arr[firsti * n2 + j];
-                }
-            }
-        }
-    }*/
-
-    reduce_sum(p);
-    for(i = 0; i < p; i++) {
-        mean += res[i].sum;
-        count += res[i].count;
-    }
-    if(count == 0) {
-        if(k == 0) {
-            a->res->err = -2;
-            a->count = 0;
-        }
+void *thread_func(void *ptr) {
+    Args *arg = (Args *) ptr;
+    int u = arg->k;
+    int p = arg->p; 
+    int n = arg->n;
+    int *glob_count;
+    results *r = arg->res;
+    long long unsigned int start = u * r[0].ch_size + 1, i, j, prev = 0, pred_prev = 0;
+    long long unsigned int *glob_max;
+    bool is_prime;
+    double t_cpu = 0.;
+    glob_count = &r[0].glob_res->current_count;
+    glob_max = &r[0].glob_res->max_six;
+    r[u].start = start;
+    t_cpu = get_cpu_time();
+    while (true) {
+        find_6y_numbers(arg);
         reduce_sum(p);
-        return 0;
+        if (u == 0) global_res_fun(arg);
+        reduce_sum(p);
+        if (r[0].glob_res->index_last >= 0) break;
+        r[u].start += p * r[0].ch_size;
     }
-    val = mean/count;
-    a -> count = count;
-    change_arr(arr, arr3, val, n1, n2, p, k, res);
-    /*for(i = 1; i < p; i++) {
-        arr10 = res[i - 1].arr1;
-        arr20 = res[i].arr2;
-        leni1 = n1 / p + (i - 1 < l ? 1 : 0);
-        leni = n1 / p + (i < l ? 1 : 0);
-        firsti = (i < l ? i * leni : i * leni + l);
-        lasti = (i - 1 < l ? (i - 1) * leni1 : (i - 1) * leni1 + l) + leni1 - 1;
-        //printf("\n%d 1st %d     last %d\n", i, firsti, lasti);
-        
-        if (leni1 > 1) {
-            if (lasti < n1 - 1 && lasti > 0)
-                for(j = 1; j < n2 - 1; j++) {
-                    mean0 = (arr[lasti * n2 + j + 1] + arr10[j]  + arr[(lasti + 1) * n2 + j] + arr[lasti * n2 + j - 1]) / 4.;  
-                    if ((arr[lasti * n2 + j] > mean0) || (fabs(arr[lasti * n2 + j] - mean0) < EPS)) {
-                        arr[lasti * n2 + j] = val;
-                    }
-                }
-        }
-        if (firsti < n1 - 1 && firsti > 0) {
-            for(j = 1; j < n2 - 1; j++) {
-                mean0 = (arr[firsti * n2 + j + 1] + arr[(firsti - 1) * n2 + j] + arr20[j] + arr[firsti * n2 + j - 1]) / 4.;  
-                if ((arr[firsti * n2 + j] > mean0) || (fabs(arr[firsti * n2 + j] - mean0) < EPS)) {
-                    arr[firsti * n2 + j] = val;
+    if ((u == 0) && ((*glob_count) < n))
+        for (i = r[r[0].glob_res->index_last].start;; i++) {
+            if (i < 2) continue;
+            is_prime = true;
+            for (j = 2; j * j <= i; j++) {
+                if (i % j == 0) {
+                    is_prime = false;
+                    break;
                 }
             }
+            if (is_prime) {
+                if ((prev > 0) && (i - prev == 6)) {
+                    (*glob_count)++;
+                    (*glob_max) = i;
+                }
+                if ((pred_prev > 0) && (i - pred_prev == 6)) {
+                    (*glob_count)++;
+                    (*glob_max) = i;
+                }
+                if ((*glob_count) == n) break;
+                pred_prev = prev;
+                prev = i;
+            }
         }
-    }*/
-    time = (clock() - time) / CLOCKS_PER_SEC;
-    reduce_sum(p);
-    a -> time = time;
-    delete []arr1;
-    delete []arr2;
-    delete []arr3;   
+    t_cpu = get_cpu_time() - t_cpu;
+    r[u].time_cpu = t_cpu;
     return nullptr;
 }
