@@ -1,19 +1,10 @@
-.PHONY: all debug
-all: a.out
-
-CFLAGS= -O3 -mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wunused -Wcast-align -Werror -pedantic -pedantic-errors -Wfloat-equal \
-	-Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual \
-	-Wnon-virtual-dtor -Wcast-qual -Wno-suggest-attribute=format
-%.o: %.cpp
-	g++ -c -g $(CFLAGS) $< -o $@
+CFLAGS := -O3 -mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wunused -Wcast-align -Werror -pedantic -pedantic-errors -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wnon-virtual-dtor -Wcast-qual -Wno-suggest-attribute=format
 
 
-sequence.o: sequence.cpp sequence.h
-main.o: main.cpp sequence.h
+all:
+	g++ $(CFLAGS) main.cpp matrix.cpp values.cpp
 
 
-a.out: sequence.o main.o
-	g++ -pthread -o a.out sequence.o main.o
+clear:
+	rm ./a.out
 
-clean:
-	rm -f *.out *.o
