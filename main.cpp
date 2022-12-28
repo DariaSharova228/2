@@ -1,66 +1,118 @@
-#include "sequence.h"
-double get_time_tot()
-{
-    struct timeval buf;
-    gettimeofday(&buf, 0);
-    return buf.tv_sec + buf.tv_usec / 1.e6;
-}
-int main(int argc, char *argv[]) {
-    int p_thread, k, n;
-    Args *args;
-    results *local_res;
-    global_results glob_res;
-    double time_tot = 0;
-    if (!((argc == 3) && sscanf(argv[1], "%d", &p_thread) == 1 && sscanf(argv[2], "%d", &n) == 1)) {
-        printf("usage: %s p n\n", argv[0]);
-        return 1;
-    }
+#include <iostream>
+#include <cstdio>
+#include <ctime>
+#include "values.h"
 
-    local_res = new results[p_thread];
-    args = new Args[p_thread];
 
-    if (local_res == nullptr || args == nullptr) {
+int main(int argc, char* argv[]){
+  int n, m, k, res, its = 0;
+  char* filename = 0;
+  double eps, res1 = -1, res2 = -1, t1 = 0, t2 = 0;
+  unsigned int start, end;
 
-        printf("Error! Unable to allocate memory\n");
+  double *a;
+  double *x;
+ 
 
-        if (local_res) {
-            delete[] local_res;
-        }
+  if(!((argc == 5 || argc == 6) && sscanf(argv[1], "%d", &n) == 1 && sscanf(argv[2], "%d", &m) == 1 && sscanf(argv[3], "%lf", &eps) == 1 && sscanf(argv[4], "%d", &k) == 1) || (k == 0 && argc == 5)){
+    printf("Usage %s n m eps k (file)\n", argv[0]);
+    return 1;
+  }
 
-        if (args) {
-            delete[] args;
-        }
+  if(k == 0){
+    filename = argv[5];
+  }
 
-        return 3;
-    }
 
-    glob_res.n = n;
+  a = new double[n*n];
+  if(a == 0){
+    printf("Not enough memory\n");
+    printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+    delete[] a;
+    return 1;
+  }
+  res = initMatrix(a, n, k, filename,eps);
 
-    for (k = 0; k < p_thread; k++) {
-        args[k].k = k;
-        args[k].res = local_res;
-        args[k].p = p_thread;
-        args[k].n = n;
-        local_res[k].glob_res = &glob_res;
-    }
-    time_tot = get_time_tot();
-    for (k = 1; k < p_thread; k++) {
-        if (pthread_create(&args[k].tid, 0, thread_func, args + k)) {
-            printf("Cannot create thread %d\n", k);
-            abort();
-        }
-    }
-    thread_func(args + 0);
-    for (k = 1; k < p_thread; k++) {
-        pthread_join(args[k].tid, 0);
-    }
-    time_tot = get_time_tot() - time_tot;
-    for (k = 0; k < p_thread; k++) {
-        printf("%d thread time = %lf sec\n", k, local_res[k].time_cpu);
-    }
-    printf ("elapsed_all = %.2f\n", time_tot);
-    printf("Result = %llu\n", glob_res.max_six);
-    delete[] local_res;
-    delete[] args;
-    return 0;
+  if (n==1)
+  {
+      printf("values %e \n",a[0]);
+      printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+    Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+    argv[0], 0., 0., its, its / n, t1, t2);
+      delete[] a;
+      return 0;
+
+  }
+  if(res == 1){
+    delete[] a;
+    printf("File not found.\n");
+    printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+    return 1;
+  }
+  if(res == 2){
+    delete[] a;
+    printf("Error in file.\n");
+    printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+    return 2;
+  }
+
+
+  printMatrix(a, n, n, m);
+  printf("\n");
+  if(res == 3)
+  {
+  
+  printf ("Matrix is not symmetrical\n");
+  printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+  delete [] a;
+  return 3;
+  }
+
+  x = new double[n];
+  
+  if(x == 0) {
+    printf("Not enough memory\n");
+    delete[] a;
+    if(x != 0)delete[] x;
+    printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+    
+    return 1;
+  }
+
+  start = clock();
+  res = TridiagonalAlgo(n, a,eps);
+  end = clock();
+  t1 = (double)(end - start)/CLOCKS_PER_SEC;
+
+
+
+  start = clock();
+  its = values(n, a, x, eps);
+  end = clock();
+  t2 = (double)(end - start)/CLOCKS_PER_SEC;
+
+  printMatrix(x, 1, n, m);
+
+  initMatrix(a, n, k, filename,eps);
+
+  res1 = Residual1(n, a, x);
+  res2 = Residual2(n, a, x);
+
+  printf ("%s : Residual1 = %e Residual2 = %e Iterations = %d \
+  Iterations1 = %d Elapsed1 = %.2f Elapsed2 = %.2f\n",
+  argv[0], res1, res2, its, its / n, t1, t2);
+  delete[] a;
+  delete[] x;
+  
+  return 0;
 }
