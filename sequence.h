@@ -2,80 +2,55 @@
 #define MY_THREAD
 
 #include <stdio.h>
+#include <csignal>
 #include <pthread.h>
 #include <cstdlib>
-#include <stddef.h>
-#include <time.h>
-#include <math.h>
-/*class Results {
-    public:
-        double prev1= 0;
-        double prev2 = 0;
-        double next1 = 0;
-        double next2 = 0;
-        int count = 0;
-        double time = 0;
-        int flagr1 = 0;
-        int flagr2 = 0;
-        int flagl1 = 0;
-        int flagl2 = 0;
-        //int flfirst = 0;
-        //int fln1 = 0;
-        //int fln2 = 0;
+#include <sys/time.h>
+#include <sys/resource.h>
 
-        Results() = default;
-        ~Results() = default;
+#define CHUNK_SIZE 100000
+
+class global_results {
+public:
+    long long unsigned int max_six = 0;
+    long long unsigned int last = 0;
+    long long unsigned int prev_last = 0;
+    int n = 0;
+    int current_count = 0;
+    int prev_count = 0;
+    int index_last = -1;
+};
+
+class results {
+public:
+    int start = 0;
+    int ch_size = CHUNK_SIZE;
+    int count_six_prime2 = 0;
+    long long unsigned int first_prime = 0;
+    long long unsigned int last_prime = 0;
+    long long unsigned int prev_last_prime = 0;
+    long long unsigned int second_prime = 0;
+    long long unsigned int current_max = 0;
+    double time_cpu = 0;
+    global_results *glob_res;
 };
 
 class Args {
-    public:
-        Results *res = nullptr;
-        int count = 0;
-        int k = 0;  //№
-        int p = 0;  //amount
-        int n = 0;
-        double *arr = nullptr;
-        double time = 0;
-        pthread_t tid = -1;
-        
-        Args() = default;
-        ~Args() = default;
-
-};*/
-class Results {
-    public:
-        double sum = 0;
-        int count = 0;
-        int err = 0;
-        double *arr1 = nullptr;
-        double *arr2 = nullptr;
-
-        Results() = default;
-        ~Results() = default;
+public:
+    results *res = nullptr;
+    int n = 0;
+    int k = 0;
+    int p = 0;
+    pthread_t tid = -1;
 };
 
-class Args {
-    public:
-        Results *res = nullptr;
-        int k = 0;  //№
-        int p = 0;  //amount
-        int n1 = 0;
-        int n2 = 0;
-        int count = 0;
-        double *arr = nullptr;
-        double time = 0;
-        pthread_t tid = -1;
-        
-        Args() = default;
-        ~Args() = default;
+double get_cpu_time();
+double get_time_tot();
+int find_6y_numbers(Args *arg);
 
-};
-void reduce_sum(int p, double* a = nullptr, int n = 0);
+int global_res_fun(Args *arg);
+
 void *thread_func(void *ptr);
-void check_arr(double *arr, double *sum, int *count, int n1, int n2, int p, int k);
-void change_arr(double *arr, double *arr1, double *arr2, double mean, int n1, int n2, int p, int k, Results *res);
-void print_arr(double *a, int n1, int n2);
-int read_arr(double *a, int n, char *name);
 
 
 #endif //MY_THREAD
